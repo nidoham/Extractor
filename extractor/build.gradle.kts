@@ -25,13 +25,23 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     publishing {
         singleVariant("release")
     }
+}
+
+dependencies {
+    implementation(libs.newpipeextractor)
+
+    implementation(libs.okhttp)
+    implementation(libs.logging.interceptor)
+
+    implementation(libs.core.ktx)
+    testImplementation(libs.junit)
 }
 
 afterEvaluate {
