@@ -35,5 +35,9 @@ android {
 dependencies {
     implementation(libs.newpipeextractor)
 
+    implementation(libs.okhttp)
+    implementation(libs.logging.interceptor)
+
+    implementation(libs.core.ktx)
     testImplementation(libs.junit)
 }
