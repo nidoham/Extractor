@@ -1,19 +1,16 @@
 plugins {
     alias(libs.plugins.android.library)
+    id("maven-publish")
 }
 
 android {
     namespace = "com.nidoham.extractor"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
-
-        testInstrumentationRunner = "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
 
@@ -26,18 +23,27 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    publishing {
+        singleVariant("release")
+    }
 }
 
-dependencies {
-    implementation(libs.newpipeextractor)
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
 
-    implementation(libs.okhttp)
-    implementation(libs.logging.interceptor)
-
-    implementation(libs.core.ktx)
-    testImplementation(libs.junit)
+                groupId = "com.github.nidoham"
+                artifactId = "Extractor"
+                version = "1.0.0"
+            }
+        }
+    }
 }
