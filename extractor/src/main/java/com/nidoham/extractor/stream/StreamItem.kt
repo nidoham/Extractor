@@ -1,5 +1,7 @@
 package com.nidoham.extractor.stream
 
+import com.nidoham.extractor.util.TimeUtil.formatCount
+import com.nidoham.extractor.util.TimeUtil.formatDuration
 import org.schabi.newpipe.extractor.Image
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.channel.ChannelInfoItem
@@ -234,4 +236,13 @@ data class StreamItem(
             )
         }
     }
+
+    val formatDuration: String
+        get() = duration.formatDuration()
+
+    val formatCount: String
+        get() = viewCount.formatCount()
+
+    val thumbnailUrl: String
+        get() = thumbnails.maxByOrNull { it.width * it.height }?.url ?: ""
 }
