@@ -7,6 +7,7 @@ import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.localization.DateWrapper
 import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
+import org.schabi.newpipe.extractor.stream.StreamType
 
 /**
  * A unified model representing different types of streaming content including videos, channels, and playlists.
@@ -20,10 +21,15 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
  * @property type Content type — drives conditional rendering and navigation.
  * @property uploaderName Channel/creator name. Mirrors [name] for channel items.
  * @property uploaderUrl URL to the uploader's profile. Mirrors [url] for channel items.
+ * @property uploaderAvatarUrl URL to the uploader's avatar image. Empty when unavailable.
  * @property duration Video duration in seconds. `-1` when unavailable or not applicable.
  * @property viewCount Video view count. `-1` when unavailable or not applicable.
+ * @property likeCount Video like count. `-1` when unavailable — not exposed at search/InfoItem
+ *           level by NewPipe; only available after a full [StreamInfo] page load.
  * @property uploadDate Upload date wrapped for localization. `null` when unavailable or not applicable.
  * @property isShort Whether the video is a YouTube Short (vertical short-form content).
+ * @property isLive Whether the stream is a live broadcast ([StreamType.LIVE_STREAM] or
+ *           [StreamType.AUDIO_LIVE_STREAM]).
  * @property subscriberCount Channel subscriber count. `-1` when unavailable or not applicable.
  * @property description Channel description. Empty for non-channel items.
  * @property streamCount Number of videos in a playlist. `-1` when unavailable or not applicable.
@@ -39,10 +45,13 @@ data class StreamItem(
     val type: ItemType,
     val uploaderName: String,
     val uploaderUrl: String,
+    val uploaderAvatarUrl: String = "",
     val duration: Long = -1L,
     val viewCount: Long = -1L,
+    val likeCount: Long = -1L,
     val uploadDate: DateWrapper? = null,
     val isShort: Boolean = false,
+    val isLive: Boolean = false,
     val subscriberCount: Long = -1L,
     val description: String = "",
     val streamCount: Long = -1L,
@@ -84,24 +93,35 @@ data class StreamItem(
          * [isAgeRestricted] is driven entirely by [RestrictedEngine] — NewPipe's
          * [StreamInfoItem] exposes no age-restriction flag and no tags list at the
          * InfoItem level, so title + uploader name are the fields we can actually use.
+         *
+         * [likeCount] is not available at the InfoItem/search level; it is only
+         * populated after a full page load via [StreamInfo]. The field is reserved here
+         * for callers that enrich the model post-load.
          */
         private fun fromStream(item: StreamInfoItem): StreamItem {
             val title    = item.name.orEmpty()
             val uploader = item.uploaderName.orEmpty()
+            val isLive   = item.streamType == StreamType.LIVE_STREAM ||
+                    item.streamType == StreamType.AUDIO_LIVE_STREAM
 
             return StreamItem(
-                type            = ItemType.VIDEO,
-                name            = title,
-                url             = item.url.orEmpty(),
-                thumbnails      = item.thumbnails,
-                uploaderName    = uploader,
-                uploaderUrl     = item.uploaderUrl.orEmpty(),
-                duration        = item.duration.takeIf { it >= 0L } ?: -1L,
-                viewCount       = item.viewCount.takeIf { it >= 0L } ?: -1L,
-                uploadDate      = item.uploadDate,
-                isShort         = item.isShortFormContent,
-                verified        = item.isUploaderVerified,
-                isAgeRestricted = RestrictedEngine.checkYouTubeMetadata(
+                type              = ItemType.VIDEO,
+                name              = title,
+                url               = item.url.orEmpty(),
+                thumbnails        = item.thumbnails,
+                uploaderName      = uploader,
+                uploaderUrl       = item.uploaderUrl.orEmpty(),
+                uploaderAvatarUrl = item.uploaderAvatars
+                    .maxByOrNull { it.height }?.url
+                    .orEmpty(),
+                duration          = item.duration.takeIf { it >= 0L } ?: -1L,
+                viewCount         = item.viewCount.takeIf { it >= 0L } ?: -1L,
+                likeCount         = -1L, // not available at search level
+                uploadDate        = item.uploadDate,
+                isShort           = item.isShortFormContent,
+                isLive            = isLive,
+                verified          = item.isUploaderVerified,
+                isAgeRestricted   = RestrictedEngine.checkYouTubeMetadata(
                     title       = title,
                     description = uploader  // only extra text field available at InfoItem level
                 ).isBlocked
@@ -113,15 +133,16 @@ data class StreamItem(
          * Uploader fields mirror the channel's own name/URL per the unified model contract.
          */
         private fun fromChannel(item: ChannelInfoItem): StreamItem = StreamItem(
-            type            = ItemType.CHANNEL,
-            name            = item.name.orEmpty(),
-            url             = item.url.orEmpty(),
-            thumbnails      = item.thumbnails,
-            uploaderName    = item.name.orEmpty(),
-            uploaderUrl     = item.url.orEmpty(),
-            subscriberCount = item.subscriberCount.takeIf { it >= 0L } ?: -1L,
-            description     = item.description.orEmpty(),
-            verified        = item.isVerified
+            type              = ItemType.CHANNEL,
+            name              = item.name.orEmpty(),
+            url               = item.url.orEmpty(),
+            thumbnails        = item.thumbnails,
+            uploaderName      = item.name.orEmpty(),
+            uploaderUrl       = item.url.orEmpty(),
+            uploaderAvatarUrl = item.thumbnails.maxByOrNull { it.height }?.url.orEmpty(),
+            subscriberCount   = item.subscriberCount.takeIf { it >= 0L } ?: -1L,
+            description       = item.description.orEmpty(),
+            verified          = item.isVerified
         )
 
         /**
